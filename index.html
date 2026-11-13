@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NutriAI — AI Nutrition Assistant</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --card: #22263a;
+      --border: #2e3350;
+      --accent: #4f8ef7;
+      --accent2: #3ecf8e;
+      --warn: #f7a94f;
+      --danger: #f75f5f;
+      --text: #e8ecf5;
+      --muted: #8990b0;
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .logo span { color: var(--accent2); }
+    .ibm-badge {
+      background: linear-gradient(135deg, #1f70c1, #0043ce);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Layout ── */
+    .app-layout {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 64px);
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
+    }
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 10px 12px 4px;
+    }
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-btn:hover { background: var(--card); color: var(--text); }
+    .nav-btn.active { background: rgba(79,142,247,0.15); color: var(--accent); font-weight: 600; }
+    .nav-icon { font-size: 18px; width: 24px; text-align: center; }
+
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Tab Panels ── */
+    .panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .panel.active { display: flex; }
+    .panel-inner {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+    }
+
+    /* ── Chat Panel ── */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .message {
+      display: flex;
+      gap: 12px;
+      max-width: 80%;
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.bot { align-self: flex-start; }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .avatar.bot { background: rgba(79,142,247,0.2); }
+    .avatar.user { background: rgba(62,207,142,0.2); }
+    .bubble {
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14.5px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .bubble.bot { background: var(--card); border-radius: 4px 16px 16px 16px; }
+    .bubble.user { background: rgba(79,142,247,0.2); border-radius: 16px 4px 16px 16px; }
+    .typing-indicator { display: flex; gap: 5px; padding: 14px 16px; }
+    .dot {
+      width: 8px; height: 8px;
+      background: var(--muted);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,80%,100%{transform:scale(0.6)} 40%{transform:scale(1)} }
+    .chat-input-area {
+      padding: 16px 32px 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .chat-input {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 14px;
+      resize: none;
+      min-height: 48px;
+      max-height: 140px;
+      font-family: inherit;
+      line-height: 1.5;
+    }
+    .chat-input:focus { outline: none; border-color: var(--accent); }
+    .send-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      width: 48px;
+      height: 48px;
+      cursor: pointer;
+      font-size: 20px;
+      color: #fff;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .send-btn:hover { background: #3a7de6; }
+    .send-btn:disabled { background: var(--border); cursor: not-allowed; }
+
+    /* ── Forms ── */
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .section-desc { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select, textarea {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    select option { background: var(--card); }
+    .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+    .chip.selected { background: rgba(79,142,247,0.2); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 8px;
+    }
+    .btn-primary:hover { background: #3a7de6; }
+    .btn-primary:disabled { background: var(--border); cursor: not-allowed; }
+    .btn-secondary {
+      background: none;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-secondary:hover { background: rgba(79,142,247,0.1); }
+
+    /* ── Result Cards ── */
+    .result-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-top: 24px;
+    }
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .result-title { font-size: 16px; font-weight: 700; color: var(--text); }
+    .badge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .badge.green { background: rgba(62,207,142,0.15); color: var(--accent2); }
+    .badge.blue { background: rgba(79,142,247,0.15); color: var(--accent); }
+    .badge.orange { background: rgba(247,169,79,0.15); color: var(--warn); }
+    .result-body {
+      color: var(--text);
+      font-size: 14.5px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+    }
+    .macro-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .macro-item {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .macro-value { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .macro-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Image Upload ── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--card);
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(79,142,247,0.05);
+    }
+    .upload-icon { font-size: 48px; margin-bottom: 12px; }
+    .upload-text { color: var(--muted); font-size: 14px; }
+    .upload-text strong { color: var(--accent); }
+    .preview-img {
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 10px;
+      margin-top: 16px;
+      object-fit: contain;
+    }
+
+    /* ── Tabs within panels ── */
+    .sub-tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      background: var(--surface);
+    }
+    .sub-tab {
+      padding: 12px 20px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.15s;
+    }
+    .sub-tab:hover { color: var(--text); }
+    .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+    /* ── Quick Actions ── */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .qa-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .qa-card:hover { border-color: var(--accent); background: rgba(79,142,247,0.05); }
+    .qa-icon { font-size: 28px; margin-bottom: 8px; }
+    .qa-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .qa-desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Swap Cards ── */
+    .swap-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .swap-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .swap-name { font-weight: 700; color: var(--accent2); font-size: 15px; }
+    .swap-reason { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .form-grid { grid-template-columns: 1fr; }
+      .macro-grid { grid-template-columns: repeat(2,1fr); }
+      .quick-actions { grid-template-columns: 1fr; }
+      .swap-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">🥦 NutriAI <span>Assistant</span></div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="ibm-badge">🔷 IBM Granite</span>
+    <span style="color:var(--muted);font-size:13px;" id="status-indicator">Ready</span>
+  </div>
+</header>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Main</div>
+    <button class="nav-btn active" onclick="showPanel('chat')" id="nav-chat">
+      <span class="nav-icon">💬</span> AI Chat
+    </button>
+    <button class="nav-btn" onclick="showPanel('meal-plan')" id="nav-meal-plan">
+      <span class="nav-icon">📅</span> Meal Planner
+    </button>
+    <button class="nav-btn" onclick="showPanel('analyze')" id="nav-analyze">
+      <span class="nav-icon">🔬</span> Food Analysis
+    </button>
+    <button class="nav-btn" onclick="showPanel('swap')" id="nav-swap">
+      <span class="nav-icon">🔄</span> Smart Swaps
+    </button>
+    <div class="sidebar-label">Multimodal</div>
+    <button class="nav-btn" onclick="showPanel('image')" id="nav-image">
+      <span class="nav-icon">📸</span> Food Photo
+    </button>
+    <button class="nav-btn" onclick="showPanel('label')" id="nav-label">
+      <span class="nav-icon">🏷️</span> Label Scanner
+    </button>
+    <div class="sidebar-label">Compare</div>
+    <button class="nav-btn" onclick="showPanel('compare')" id="nav-compare">
+      <span class="nav-icon">⚖️</span> Compare Foods
+    </button>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- ── CHAT PANEL ── -->
+    <div class="panel active chat-container" id="panel-chat">
+      <div class="chat-messages" id="chat-messages">
+        <!-- Welcome message -->
+        <div class="message bot">
+          <div class="avatar bot">🥦</div>
+          <div class="bubble bot">
+👋 Hi! I'm <strong>NutriAI</strong>, your personal AI nutrition assistant powered by <strong>IBM Granite</strong>.
+
+I can help you with:
+• 📅 Personalized meal plans
+• 🔬 Nutritional analysis of any food
+• 🔄 Smart food swap recommendations
+• 📸 Food photo analysis
+• 🏷️ Grocery label decoding
+• ⚖️ Food comparisons with science-backed explanations
+
+What nutrition question can I help you with today?
+          </div>
+        </div>
+        <!-- Quick action chips -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding-left:48px;">
+          <button class="chip" onclick="sendQuickMsg('Create a 7-day meal plan for weight loss')">🥗 7-day meal plan</button>
+          <button class="chip" onclick="sendQuickMsg('What are the best pre-workout foods?')">💪 Pre-workout foods</button>
+          <button class="chip" onclick="sendQuickMsg('I am diabetic. What should I avoid eating?')">🩺 Diabetic diet</button>
+          <button class="chip" onclick="sendQuickMsg('What is a healthy Indian vegetarian breakfast?')">🌿 Veg breakfast ideas</button>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <textarea class="chat-input" id="chat-input" placeholder="Ask anything about nutrition, meals, food choices..." rows="1"
+          onkeydown="handleChatKey(event)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+
+    <!-- ── MEAL PLAN PANEL ── -->
+    <div class="panel" id="panel-meal-plan">
+      <div class="panel-inner">
+        <div class="section-title">📅 Personalized Meal Planner</div>
+        <div class="section-desc">Generate a custom meal plan powered by IBM Granite AI — tailored to your goals, health conditions, and preferences.</div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Health Goal</label>
+            <select id="mp-goal">
+              <option value="weight_loss">Weight Loss</option>
+              <option value="muscle_gain">Muscle Gain</option>
+              <option value="maintenance" selected>Maintenance</option>
+              <option value="diabetes_management">Diabetes Management</option>
+              <option value="heart_health">Heart Health</option>
+              <option value="athletic_performance">Athletic Performance</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Plan Duration</label>
+            <select id="mp-days">
+              <option value="3">3 Days</option>
+              <option value="5">5 Days</option>
+              <option value="7" selected>7 Days</option>
+              <option value="14">14 Days</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Dietary Preferences</label>
+            <div class="chip-group" id="dietary-chips">
+              <button class="chip" onclick="toggleChip(this,'dietary')">Vegetarian</button>
+              <button class="chip" onclick="toggleChip(this,'dietary')">Vegan</button>
+              <button class="chip" onclick="toggleChip(this,'dietary')">Gluten-Free</button>
+              <button class="chip" onclick="toggleChip(this,'dietary')">Dairy-Free</button>
+              <button class="chip" onclick="toggleChip(this,'dietary')">Keto</button>
+              <button class="chip" onclick="toggleChip(this,'dietary')">Mediterranean</button>
+              <button class="chip" onclick="toggleChip(this,'dietary')">High-Protein</button>
+              <button class="chip" onclick="toggleChip(this,'dietary')">Low-Carb</button>
+            </div>
+          </div>
+          <div class="form-group full">
+            <label>Allergies / Intolerances</label>
+            <div class="chip-group" id="allergy-chips">
+              <button class="chip" onclick="toggleChip(this,'allergy')">Gluten</button>
+              <button class="chip" onclick="toggleChip(this,'allergy')">Dairy</button>
+              <button class="chip" onclick="toggleChip(this,'allergy')">Nuts</button>
+              <button class="chip" onclick="toggleChip(this,'allergy')">Eggs</button>
+              <button class="chip" onclick="toggleChip(this,'allergy')">Soy</button>
+              <button class="chip" onclick="toggleChip(this,'allergy')">Fish</button>
+              <button class="chip" onclick="toggleChip(this,'allergy')">Shellfish</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Medical Conditions</label>
+            <input type="text" id="mp-conditions" placeholder="e.g., Type 2 Diabetes, Hypertension" />
+          </div>
+          <div class="form-group">
+            <label>Cultural Background</label>
+            <input type="text" id="mp-culture" placeholder="e.g., South Indian, Mediterranean" />
+          </div>
+          <div class="form-group full">
+            <label>Fitness Routine</label>
+            <input type="text" id="mp-fitness" placeholder="e.g., Gym 5x/week, Yoga daily, Sedentary" />
+          </div>
+        </div>
+
+        <button class="btn-primary" id="mp-btn" onclick="generateMealPlan()">
+          🍽️ Generate Meal Plan
+        </button>
+
+        <div id="mp-result"></div>
+      </div>
+    </div>
+
+    <!-- ── FOOD ANALYSIS PANEL ── -->
+    <div class="panel" id="panel-analyze">
+      <div class="panel-inner">
+        <div class="section-title">🔬 Food Nutritional Analysis</div>
+        <div class="section-desc">Get a deep nutritional breakdown of any food powered by IBM Granite AI.</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Food Name</label>
+            <input type="text" id="fa-food" placeholder="e.g., quinoa, salmon, avocado" />
+          </div>
+          <div class="form-group">
+            <label>Portion Size</label>
+            <input type="text" id="fa-portion" placeholder="e.g., 100g, 1 cup, 1 medium" value="100g" />
+          </div>
+        </div>
+        <div class="chip-group" style="margin:16px 0;">
+          <button class="chip" onclick="quickAnalyze('quinoa')">Quinoa</button>
+          <button class="chip" onclick="quickAnalyze('salmon')">Salmon</button>
+          <button class="chip" onclick="quickAnalyze('avocado')">Avocado</button>
+          <button class="chip" onclick="quickAnalyze('lentils')">Lentils</button>
+          <button class="chip" onclick="quickAnalyze('sweet potato')">Sweet Potato</button>
+          <button class="chip" onclick="quickAnalyze('greek yogurt')">Greek Yogurt</button>
+        </div>
+        <button class="btn-primary" onclick="analyzeFood()">🔍 Analyze Food</button>
+        <div id="fa-result"></div>
+      </div>
+    </div>
+
+    <!-- ── SMART SWAP PANEL ── -->
+    <div class="panel" id="panel-swap">
+      <div class="panel-inner">
+        <div class="section-title">🔄 Smart Food Swaps</div>
+        <div class="section-desc">Replace unhealthy foods with nutritious alternatives — with science-backed explanations.</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Food to Replace</label>
+            <input type="text" id="sw-food" placeholder="e.g., white rice, butter, sugary drinks" />
+          </div>
+          <div class="form-group">
+            <label>Your Health Goal</label>
+            <select id="sw-goal">
+              <option value="weight_loss">Weight Loss</option>
+              <option value="muscle_gain">Muscle Gain</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="diabetes_management">Diabetes Management</option>
+              <option value="heart_health">Heart Health</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Reason for Swap</label>
+            <input type="text" id="sw-reason" placeholder="e.g., reduce calories, lower glycemic index, avoid allergen" />
+          </div>
+        </div>
+        <div class="chip-group" style="margin:16px 0;">
+          <button class="chip" onclick="quickSwap('white rice')">White Rice</button>
+          <button class="chip" onclick="quickSwap('butter')">Butter</button>
+          <button class="chip" onclick="quickSwap('potato chips')">Chips</button>
+          <button class="chip" onclick="quickSwap('sugary drinks')">Sugary Drinks</button>
+          <button class="chip" onclick="quickSwap('ice cream')">Ice Cream</button>
+          <button class="chip" onclick="quickSwap('red meat')">Red Meat</button>
+        </div>
+        <button class="btn-primary" onclick="getSwaps()">💡 Get Smart Swaps</button>
+        <div id="sw-result"></div>
+      </div>
+    </div>
+
+    <!-- ── IMAGE PANEL ── -->
+    <div class="panel" id="panel-image">
+      <div class="panel-inner">
+        <div class="section-title">📸 Food Photo Analysis</div>
+        <div class="section-desc">Upload a food photo and get instant nutritional insights powered by IBM Granite AI.</div>
+        <div class="upload-zone" id="upload-zone"
+             onclick="document.getElementById('img-input').click()"
+             ondragover="event.preventDefault();this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="handleDrop(event)">
+          <div class="upload-icon">📷</div>
+          <div class="upload-text">
+            <strong>Click to upload</strong> or drag & drop<br>
+            Supports JPG, PNG, WebP — food photos, meal plates, snacks
+          </div>
+          <img id="img-preview" class="preview-img" style="display:none;" />
+        </div>
+        <input type="file" id="img-input" accept="image/*" style="display:none;" onchange="previewImage(event)" />
+        <button class="btn-primary" id="img-btn" onclick="analyzeImage()" style="margin-top:16px;" disabled>
+          🔍 Analyze Food Photo
+        </button>
+        <div id="img-result"></div>
+      </div>
+    </div>
+
+    <!-- ── LABEL PANEL ── -->
+    <div class="panel" id="panel-label">
+      <div class="panel-inner">
+        <div class="section-title">🏷️ Grocery Label Scanner</div>
+        <div class="section-desc">Paste nutrition label text from any packaged food for a detailed health analysis.</div>
+        <div class="form-group">
+          <label>Paste Nutrition Label Text</label>
+          <textarea id="label-text" rows="8" placeholder="e.g.:&#10;Serving Size: 1 cup (240ml)&#10;Calories: 150&#10;Total Fat: 8g&#10;Saturated Fat: 5g&#10;Sodium: 120mg&#10;Total Carbohydrate: 12g&#10;Sugars: 10g&#10;Protein: 8g&#10;Ingredients: Whole milk, cream, salt..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="analyzeLabel()">🔍 Analyze Label</button>
+        <div id="label-result"></div>
+      </div>
+    </div>
+
+    <!-- ── COMPARE PANEL ── -->
+    <div class="panel" id="panel-compare">
+      <div class="panel-inner">
+        <div class="section-title">⚖️ Compare Two Foods</div>
+        <div class="section-desc">Get a side-by-side evidence-based comparison of two foods for your health context.</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Food A</label>
+            <input type="text" id="cmp-a" placeholder="e.g., brown rice" />
+          </div>
+          <div class="form-group">
+            <label>Food B</label>
+            <input type="text" id="cmp-b" placeholder="e.g., quinoa" />
+          </div>
+          <div class="form-group full">
+            <label>Your Context (Optional)</label>
+            <input type="text" id="cmp-ctx" placeholder="e.g., for a diabetic person, post-workout, weight loss" />
+          </div>
+        </div>
+        <div class="chip-group" style="margin:16px 0;">
+          <button class="chip" onclick="quickCompare('brown rice','quinoa')">Brown Rice vs Quinoa</button>
+          <button class="chip" onclick="quickCompare('oatmeal','eggs')">Oatmeal vs Eggs</button>
+          <button class="chip" onclick="quickCompare('chicken breast','tofu')">Chicken vs Tofu</button>
+          <button class="chip" onclick="quickCompare('banana','apple')">Banana vs Apple</button>
+        </div>
+        <button class="btn-primary" onclick="compareFoods()">⚖️ Compare Now</button>
+        <div id="cmp-result"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // ── State ──
+  const API = '';  // Same origin
+  let conversationHistory = [];
+  let selectedDietary = [];
+  let selectedAllergies = [];
+  let uploadedImageFile = null;
+
+  // ── Navigation ──
+  function showPanel(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    document.getElementById('nav-' + name).classList.add('active');
+  }
+
+  // ── Chip toggles ──
+  function toggleChip(el, type) {
+    el.classList.toggle('selected');
+    const val = el.textContent.trim().toLowerCase();
+    if (type === 'dietary') {
+      if (el.classList.contains('selected')) selectedDietary.push(val);
+      else selectedDietary = selectedDietary.filter(x => x !== val);
+    } else {
+      if (el.classList.contains('selected')) selectedAllergies.push(val);
+      else selectedAllergies = selectedAllergies.filter(x => x !== val);
+    }
+  }
+
+  // ── Status indicator ──
+  function setStatus(msg, color='var(--muted)') {
+    const el = document.getElementById('status-indicator');
+    el.textContent = msg;
+    el.style.color = color;
+  }
+
+  // ── API helper ──
+  async function apiCall(endpoint, body) {
+    setStatus('⟳ Thinking...', 'var(--accent)');
+    try {
+      const res = await fetch(API + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setStatus('Ready', 'var(--muted)');
+      if (!res.ok) throw new Error(data.detail || 'API error');
+      return data;
+    } catch (err) {
+      setStatus('Error', 'var(--danger)');
+      throw err;
+    }
+  }
+
+  function showLoading(id) {
+    document.getElementById(id).innerHTML = `
+      <div class="result-card" style="display:flex;align-items:center;gap:12px;">
+        <div class="spinner"></div>
+        <span style="color:var(--muted);">IBM Granite is generating your response...</span>
+      </div>`;
+  }
+
+  function showError(id, msg) {
+    document.getElementById(id).innerHTML = `
+      <div class="result-card" style="border-color:var(--danger);">
+        <div style="color:var(--danger);font-weight:600;">⚠ Error</div>
+        <div style="color:var(--muted);margin-top:8px;">${msg}</div>
+      </div>`;
+  }
+
+  // ── Chat ──
+  function handleChatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function appendMessage(role, content) {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+    div.innerHTML = `
+      <div class="avatar ${role}">${role === 'bot' ? '🥦' : '👤'}</div>
+      <div class="bubble ${role}">${content}</div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function showTyping() {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'message bot';
+    div.id = 'typing';
+    div.innerHTML = `<div class="avatar bot">🥦</div>
+      <div class="bubble bot"><div class="typing-indicator">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div></div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typing');
+    if (el) el.remove();
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    input.style.height = 'auto';
+
+    appendMessage('user', msg);
+    conversationHistory.push({ role: 'user', content: msg });
+    showTyping();
+
+    document.getElementById('send-btn').disabled = true;
+    try {
+      const data = await apiCall('/api/chat', {
+        message: msg,
+        conversation_history: conversationHistory,
+      });
+      removeTyping();
+      const reply = data.data.response;
+      appendMessage('bot', reply);
+      conversationHistory.push({ role: 'assistant', content: reply });
+    } catch (err) {
+      removeTyping();
+      appendMessage('bot', `⚠️ <span style="color:var(--danger)">${err.message}</span>`);
+    } finally {
+      document.getElementById('send-btn').disabled = false;
+    }
+  }
+
+  function sendQuickMsg(msg) {
+    document.getElementById('chat-input').value = msg;
+    sendMessage();
+    showPanel('chat');
+  }
+
+  // ── Meal Plan ──
+  async function generateMealPlan() {
+    const btn = document.getElementById('mp-btn');
+    btn.disabled = true;
+    btn.textContent = '⟳ Generating...';
+    showLoading('mp-result');
+
+    const conditions = document.getElementById('mp-conditions').value
+      .split(',').map(x => x.trim()).filter(Boolean);
+
+    try {
+      const data = await apiCall('/api/meal-plan', {
+        health_goal: document.getElementById('mp-goal').value,
+        dietary_preferences: selectedDietary,
+        allergies: selectedAllergies,
+        medical_conditions: conditions,
+        fitness_routine: document.getElementById('mp-fitness').value || 'moderate activity',
+        cultural_background: document.getElementById('mp-culture').value || 'no preference',
+        days: parseInt(document.getElementById('mp-days').value),
+      });
+
+      const d = data.data;
+      const macros = d.macro_targets;
+      document.getElementById('mp-result').innerHTML = `
+        <div class="result-card">
+          <div class="result-header">
+            <div class="result-title">🍽️ Your ${d.days}-Day Personalized Meal Plan</div>
+            <span class="badge green">IBM Granite</span>
+          </div>
+          <div class="macro-grid">
+            <div class="macro-item">
+              <div class="macro-value">${macros.calories}</div>
+              <div class="macro-label">Daily Calories</div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-value">${macros.protein_pct}%</div>
+              <div class="macro-label">Protein</div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-value">${macros.carbs_pct}%</div>
+              <div class="macro-label">Carbs</div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-value">${macros.fat_pct}%</div>
+              <div class="macro-label">Fat</div>
+            </div>
+          </div>
+          <div class="result-body">${d.meal_plan}</div>
+        </div>`;
+    } catch (err) {
+      showError('mp-result', err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🍽️ Generate Meal Plan';
+    }
+  }
+
+  // ── Food Analysis ──
+  async function analyzeFood() {
+    const food = document.getElementById('fa-food').value.trim();
+    if (!food) { alert('Please enter a food name'); return; }
+    showLoading('fa-result');
+    try {
+      const data = await apiCall('/api/analyze-food', {
+        food_name: food,
+        portion: document.getElementById('fa-portion').value || '100g',
+      });
+      const d = data.data;
+      const facts = d.database_facts;
+      let dbHtml = '';
+      if (facts) {
+        dbHtml = `<div class="macro-grid" style="margin-bottom:16px;">
+          <div class="macro-item"><div class="macro-value">${facts.calories}</div><div class="macro-label">Calories</div></div>
+          <div class="macro-item"><div class="macro-value">${facts.protein}g</div><div class="macro-label">Protein</div></div>
+          <div class="macro-item"><div class="macro-value">${facts.carbs}g</div><div class="macro-label">Carbs</div></div>
+          <div class="macro-item"><div class="macro-value">${facts.fat}g</div><div class="macro-label">Fat</div></div>
+        </div>`;
+      }
+      document.getElementById('fa-result').innerHTML = `
+        <div class="result-card">
+          <div class="result-header">
+            <div class="result-title">🔬 ${d.food} — Nutritional Analysis (${d.portion})</div>
+            <span class="badge blue">IBM Granite</span>
+          </div>
+          ${dbHtml}
+          <div class="result-body">${d.detailed_analysis}</div>
+        </div>`;
+    } catch (err) { showError('fa-result', err.message); }
+  }
+
+  function quickAnalyze(food) {
+    document.getElementById('fa-food').value = food;
+    analyzeFood();
+  }
+
+  // ── Swaps ──
+  async function getSwaps() {
+    const food = document.getElementById('sw-food').value.trim();
+    if (!food) { alert('Please enter a food to replace'); return; }
+    showLoading('sw-result');
+    try {
+      const data = await apiCall('/api/food-swap', {
+        food_to_replace: food,
+        reason: document.getElementById('sw-reason').value || 'healthier option',
+        user_goal: document.getElementById('sw-goal').value,
+      });
+      const d = data.data;
+      let quickHtml = '';
+      if (d.quick_swaps && d.quick_swaps.length > 0) {
+        quickHtml = `<div style="margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">QUICK SWAPS</div>
+          <div class="swap-cards">
+            ${d.quick_swaps.map(s => `
+              <div class="swap-card">
+                <div class="swap-name">✅ ${s.swap}</div>
+                <div class="swap-reason">${s.reason}</div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+      }
+      document.getElementById('sw-result').innerHTML = `
+        <div class="result-card">
+          <div class="result-header">
+            <div class="result-title">🔄 Swapping: ${d.original_food}</div>
+            <span class="badge orange">IBM Granite</span>
+          </div>
+          ${quickHtml}
+          <div class="result-body">${d.detailed_recommendations}</div>
+        </div>`;
+    } catch (err) { showError('sw-result', err.message); }
+  }
+
+  function quickSwap(food) {
+    document.getElementById('sw-food').value = food;
+    getSwaps();
+  }
+
+  // ── Image Analysis ──
+  function previewImage(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadedImageFile = file;
+    const preview = document.getElementById('img-preview');
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+    document.getElementById('img-btn').disabled = false;
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      uploadedImageFile = file;
+      const preview = document.getElementById('img-preview');
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+      document.getElementById('img-btn').disabled = false;
+    }
+  }
+
+  async function analyzeImage() {
+    if (!uploadedImageFile) return;
+    showLoading('img-result');
+    setStatus('⟳ Analyzing image...', 'var(--accent)');
+    const formData = new FormData();
+    formData.append('file', uploadedImageFile);
+    formData.append('image_type', 'food_photo');
+    try {
+      const res = await fetch('/api/analyze-image', { method: 'POST', body: formData });
+      const data = await res.json();
+      setStatus('Ready', 'var(--muted)');
+      if (!data.success) throw new Error(data.detail || 'Error');
+      const d = data.data;
+      const items = d.image_info?.detected_items || [];
+      document.getElementById('img-result').innerHTML = `
+        <div class="result-card">
+          <div class="result-header">
+            <div class="result-title">📸 Food Photo Analysis</div>
+            <span class="badge green">IBM Granite</span>
+          </div>
+          ${items.length ? `<div style="margin-bottom:14px;">
+            <span style="color:var(--muted);font-size:13px;">Detected items: </span>
+            ${items.map(i=>`<span class="badge blue" style="margin:2px;">${i}</span>`).join('')}
+          </div>` : ''}
+          <div class="result-body">${d.nutrition_analysis?.analysis || d.message || 'Analysis complete.'}</div>
+        </div>`;
+    } catch (err) {
+      setStatus('Error', 'var(--danger)');
+      showError('img-result', err.message);
+    }
+  }
+
+  // ── Label Analysis ──
+  async function analyzeLabel() {
+    const text = document.getElementById('label-text').value.trim();
+    if (!text) { alert('Please paste the nutrition label text'); return; }
+    showLoading('label-result');
+    try {
+      const data = await apiCall('/api/analyze-label', { label_text: text });
+      const d = data.data;
+      document.getElementById('label-result').innerHTML = `
+        <div class="result-card">
+          <div class="result-header">
+            <div class="result-title">🏷️ Nutrition Label Analysis</div>
+            <span class="badge orange">IBM Granite</span>
+          </div>
+          <div class="result-body">${d.analysis}</div>
+        </div>`;
+    } catch (err) { showError('label-result', err.message); }
+  }
+
+  // ── Compare Foods ──
+  async function compareFoods() {
+    const a = document.getElementById('cmp-a').value.trim();
+    const b = document.getElementById('cmp-b').value.trim();
+    if (!a || !b) { alert('Please enter both foods'); return; }
+    showLoading('cmp-result');
+    try {
+      const data = await apiCall('/api/compare-foods', {
+        food_a: a,
+        food_b: b,
+        context: document.getElementById('cmp-ctx').value,
+      });
+      const d = data.data;
+      let dbHtml = '';
+      const fa = d.food_a.facts, fb = d.food_b.facts;
+      if (fa && fb) {
+        dbHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+          <div class="macro-item" style="padding:16px;">
+            <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">${d.food_a.name}</div>
+            <div style="color:var(--muted);font-size:13px;">
+              Calories: ${fa.calories} kcal<br>
+              Protein: ${fa.protein}g | Carbs: ${fa.carbs}g | Fat: ${fa.fat}g
+            </div>
+          </div>
+          <div class="macro-item" style="padding:16px;">
+            <div style="font-weight:700;color:var(--accent2);margin-bottom:8px;">${d.food_b.name}</div>
+            <div style="color:var(--muted);font-size:13px;">
+              Calories: ${fb.calories} kcal<br>
+              Protein: ${fb.protein}g | Carbs: ${fb.carbs}g | Fat: ${fb.fat}g
+            </div>
+          </div>
+        </div>`;
+      }
+      document.getElementById('cmp-result').innerHTML = `
+        <div class="result-card">
+          <div class="result-header">
+            <div class="result-title">⚖️ ${d.food_a.name} vs ${d.food_b.name}</div>
+            <span class="badge blue">IBM Granite</span>
+          </div>
+          ${dbHtml}
+          <div class="result-body">${d.comparison}</div>
+        </div>`;
+    } catch (err) { showError('cmp-result', err.message); }
+  }
+
+  function quickCompare(a, b) {
+    document.getElementById('cmp-a').value = a;
+    document.getElementById('cmp-b').value = b;
+    compareFoods();
+  }
+
+  // ── Auto-resize textarea ──
+  document.getElementById('chat-input').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+  });
+</script>
+</body>
+</html>
